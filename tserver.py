@@ -18,7 +18,7 @@ import sys
 import numpy as np
 from scipy.integrate import odeint
 import time
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import struct
 
 def get_ip():
@@ -46,6 +46,9 @@ class Printer():
         self.i += 1
         if self.i==len(self.item):
             self.i = 0
+    def asterisk(self):
+        sys.stdout.write("\r\x1b[K" + self.prefix + '*')
+        sys.stdout.flush()
     def __exit__(self, exc_type, exc_value, traceback):
         print('\n')
 
@@ -78,12 +81,14 @@ with Printer() as p:
 
         try:
             data, senderAddr = server.recvfrom(64)
+            #print('[*] received %s from %s:%d'%(data.decode("utf-8"), senderAddr[0], senderAddr[1]))
+            print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
             fan = struct.unpack('d',data)
             sendAns = True
             p.it()
 
         except socket.timeout:
-            fan = (0)
+            fan = [0]
             p.asterisk()
 
         except KeyboardInterrupt:
@@ -99,14 +104,14 @@ with Printer() as p:
         tPrev = tNow
 
         if sendAns: # отвечаем данными MPU
-            a = np.array([0., 0., -1.])
-            g = np.array([0., 0., y0[1]])
-            m = np.array([0., 0., -1.]) #in uT
+            #a = np.array([0., 0., -1.])
+            #g = np.array([0., 0., y0[1]])
+            #m = np.array([0., 0., -1.]) #in uT
             # передаём в приборной СК (см. документацию на MPU-9250)
-            msg = struct.pack('d'*9,
-                          a[0], a[1], a[2],
-                          g[0], g[1], g[2],
-                          m[0], m[1], m[2])
+            msg = struct.pack('d'*2, y0[0], y0[1])
+                          #a[0], a[1], a[2],
+                          #g[0], g[1], g[2],
+                          #m[0], m[1], m[2])
             server.sendto(msg, senderAddr)
 
 

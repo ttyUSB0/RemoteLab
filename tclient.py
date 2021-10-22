@@ -13,6 +13,7 @@ mx, my, mz
 @author: alex
 """
 import socket
+import struct
 
 host = '192.168.1.150'
 host = '89.22.167.12'
@@ -28,7 +29,7 @@ def get_ip():
         s.close()
     return IP
 
-
+#%%
 bind_ip = get_ip()
 bind_port = 6502
 
@@ -36,18 +37,20 @@ server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind((bind_ip,bind_port))  # Привязка адреса и порта к сокету.
 print('[*] Ready to receive MPU data on %s:%d' % (bind_ip,bind_port))
 
-server.connect((host, bind_port))
-server.settimeout(0.1)
+server.connect((get_ip(), 6505))
+server.settimeout(0.5)
 
 #%%
 
+msg = struct.pack('d', 0.5)
+
 # отправляем запрос , (address[0], 6501)
-server.send(b'!') # неважно что будем отправлять
+server.send(msg) # неважно что будем отправлять
 
 try:
-    msg, address = server.recvfrom(255) # принимаем
-    print(address)
-    print(msg.decode("utf-8"))
+    msg, address = server.recvfrom(64) # принимаем
+    print(struct.unpack('d'*2, msg))
+
 except socket.error:
     print('No data available', socket.error)
 
@@ -55,6 +58,7 @@ except socket.error:
 
 #%%
 server.close()
+
 
 
 
