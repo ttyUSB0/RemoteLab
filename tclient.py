@@ -49,8 +49,8 @@ print('[*] Ready to receive MPU data on %s:%d' % (bind_ip,bind_port))
 server.connect((get_ip(), 6505))
 server.settimeout(0.5)
 
-#%% Фигура
-plt.ion() # to run GUI event loop
+#%% Тесты
+
 
 #%% Класс для динамического графика.
 # Задержка отрисовки 70мс!
@@ -116,10 +116,8 @@ class PlotterObject():
 #%% Закон управления
 def control(t, theta, omega):
     """ управление """
-    if t<20:
-        return 0.5
-    else:
-        return 0.
+    return np.sin(t)
+
 
 
 #%% Основной цикл
@@ -142,7 +140,7 @@ while True:
     except KeyboardInterrupt:
             print('\n[*] Exit...')
             break # выход из цикла
-
+    time.sleep(0.05)
 
 
 #%%

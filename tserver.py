@@ -61,7 +61,7 @@ def myode(y, t, u):
     """ система ДУ, описывающая вертушку """
     theta, omega = y
     M = kFan*u if t<=timeout else 0 # https://stackoverflow.com/a/2802748/5355749
-    dydt = [omega, (M - kAir*omega**2)/J]
+    dydt = [omega, (M - kAir*omega**2*np.sign(omega))/J]
     return dydt
 
 #%% Сокет
@@ -94,10 +94,10 @@ with Printer() as p:
             print('\n[*] Exit...')
             break # выход из цикла
 
-        fan = clip(fan[0], -1, 1)
+        fan = clip(fan[0], -1., 1.)
         tNow = time.time()
         t = np.linspace(0, tNow-tPrev, 2)
-        sol = odeint(myode, y0, t, args=(fan,), hmax=0.01)
+        sol = odeint(myode, y0, t, args=(fan,)) #, hmax=0.01
 
         y0 = sol[-1,:]
         tPrev = tNow
