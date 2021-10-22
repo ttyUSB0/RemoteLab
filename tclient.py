@@ -18,40 +18,6 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-class Vertushka():
-    """ обмен данными с вертушкой """
-    pass
-
-
-host = '192.168.1.150'
-host = '89.22.167.12'
-
-def get_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('192.168.1.1', 1)) # doesn't even have to be reachable
-        IP = s.getsockname()[0]
-    except:
-        IP = '127.0.0.1'
-    finally:
-        s.close()
-    return IP
-
-#%%
-bind_ip = get_ip()
-bind_port = 6502
-
-server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-server.bind((bind_ip,bind_port))  # Привязка адреса и порта к сокету.
-print('[*] Ready to receive MPU data on %s:%d' % (bind_ip,bind_port))
-
-server.connect((get_ip(), 6505))
-server.settimeout(0.5)
-
-#%% Тесты
-
-
 #%% Класс для динамического графика.
 # Задержка отрисовки 70мс!
 
@@ -103,15 +69,62 @@ class PlotterObject():
         self.figure.canvas.draw() # drawing updated values
         self.figure.canvas.flush_events()
 
-# plotter = PlotterObject(maxPoints=30)
-# t = []
-# t0 = time.time()
-# for i in range(50):
-#     t.append(time.time()-t0)
-#     plotter.addData(t[-1], np.random.rand(3))
-#     #time.sleep(0.1)
+#%%
+class CommObject():
+    """ обмен данными с вертушкой """
+    def __init__(self, hostIP = None, packetStruct='d'*2):
+        self.packetStruct = packetStruct # структура пакета
+        self.hostAddr = (hostIP, 6505)
+        self.bindAddr = (self.getIP(), 6502)
 
-# plt.plot(np.diff(np.array(t)))
+        if hostIP is None:
+            self.hostAddr = (self.getIP(), self.hostAddr[1])
+
+    def connect(self):
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server.bind(self.bindAddr)  # Привязка адреса и порта к сокету.
+        print('[+] Ready to receive MPU data on %s:%d' %(self.bindAddr[0],
+                                                         self.bindAddr[1]))
+        self.server.connect(self.hostAddr)
+        print('[+] Connected to %s:%d' %(self.hostAddr[0], self.hostAddr[1]))
+        self.server.settimeout(0.5)
+
+    def control(self, u):
+        msg = struct.pack('d', u)
+        self.server.send(msg) # отправляем запрос
+
+    def measure(self):
+        try:
+            msg, _ = self.server.recvfrom(64) # принимаем
+            data = struct.unpack(self.packetStruct, msg)
+            return data
+        except socket.error:
+            print('[+] No data available', socket.error)
+            return [0. for i in range(len(self.packetStruct))] #вернём нули
+
+    def getIP(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('192.168.1.1', 1)) # doesn't even have to be reachable
+        IP = s.getsockname()[0]
+        s.close()
+        return IP
+    def close(self):
+        self.server.close()
+        print('[+] server closed...')
+
+
+class Communicator:
+    """ обёртка для CommObject https://stackoverflow.com/a/865272/5355749 """
+    def __init__(self, hostIP = None, packetStruct='d'*2):
+        self.Comm = CommObject(hostIP, packetStruct)
+    def __enter__(self):
+        self.Comm.connect()
+        return self.Comm
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.Comm.close()
+
+
+
 
 #%% Закон управления
 def control(t, theta, omega):
@@ -122,29 +135,26 @@ def control(t, theta, omega):
 
 #%% Основной цикл
 plotter = PlotterObject()
+
+host = '192.168.1.150'
+host = '89.22.167.12'
+
+
+
 t0 = time.time()
 theta_i, omega_i = 0., 0.
+with Communicator() as comm:
+    while True:
+        try:
+            u = control(time.time()-t0, theta_i, omega_i)
+            comm.control(u)
+            theta_i, omega_i = comm.measure() # принимаем
+            plotter.addData(time.time()-t0, (theta_i, omega_i, u))
+            time.sleep(0.05)
 
-while True:
-    u = control(time.time()-t0, theta_i, omega_i)
-    msg = struct.pack('d', u)
-    server.send(msg) # отправляем запрос
-
-    try:
-        msg, address = server.recvfrom(64) # принимаем
-        theta_i, omega_i = struct.unpack('d'*2, msg)
-        plotter.addData(time.time()-t0, (theta_i, omega_i, u))
-
-    except socket.error:
-        print('No data available', socket.error)
-    except KeyboardInterrupt:
-            print('\n[*] Exit...')
-            break # выход из цикла
-    time.sleep(0.05)
-
-
-#%%
-server.close()
+        except KeyboardInterrupt:
+                print('\n[*] Exit...')
+                break # выход из цикла
 
 
 
