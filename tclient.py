@@ -103,58 +103,39 @@ class PlotterObject():
         self.figure.canvas.draw() # drawing updated values
         self.figure.canvas.flush_events()
 
-plotter = PlotterObject(maxPoints=30)
+# plotter = PlotterObject(maxPoints=30)
+# t = []
+# t0 = time.time()
+# for i in range(50):
+#     t.append(time.time()-t0)
+#     plotter.addData(t[-1], np.random.rand(3))
+#     #time.sleep(0.1)
 
-t = []
-t0 = time.time()
-for i in range(50):
-    t.append(time.time()-t0)
-    plotter.addData(t[-1], np.random.rand(3))
-    #time.sleep(0.1)
+# plt.plot(np.diff(np.array(t)))
 
-plt.plot(np.diff(np.array(t)))
+#%% Закон управления
+def control(t, theta, omega):
+    """ управление """
+    if t<20:
+        return 0.5
+    else:
+        return 0.
+
+
 #%% Основной цикл
-plt.clf()
-
-plt.tight_layout()
-
-plt.xlabel("time, s")
-plt.ylabel("rad")
-
-
+plotter = PlotterObject()
 t0 = time.time()
-t, theta, omega = [], [], []
-
-line1, = ax.plot(t, theta, '-') # empty line
+theta_i, omega_i = 0., 0.
 
 while True:
-    msg = struct.pack('d', 0.1)
-    server.send(msg) # отправляем запрос , (address[0], 6501)
+    u = control(time.time()-t0, theta_i, omega_i)
+    msg = struct.pack('d', u)
+    server.send(msg) # отправляем запрос
 
     try:
         msg, address = server.recvfrom(64) # принимаем
         theta_i, omega_i = struct.unpack('d'*2, msg)
-        print(theta_i)
-        t.append(time.time() - t0)
-        theta.append(theta_i)
-        omega.append(omega_i)
-
-        # updating data values
-        line1.set_xdata(t)
-        line1.set_ydata(theta)
-
-        ax.set_xlim(right=max(t), left=min(t))
-        ax.set_ylim(top=max(theta), bottom=min(theta))
-
-        # drawing updated values
-        figure.canvas.draw()
-
-        # This will run the GUI event
-        # loop until all UI events
-        # currently waiting have been processed
-        figure.canvas.flush_events()
-
-        time.sleep(0.1)
+        plotter.addData(time.time()-t0, (theta_i, omega_i, u))
 
     except socket.error:
         print('No data available', socket.error)
