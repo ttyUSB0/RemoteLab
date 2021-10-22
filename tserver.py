@@ -81,8 +81,7 @@ with Printer() as p:
 
         try:
             data, senderAddr = server.recvfrom(64)
-            #print('[*] received %s from %s:%d'%(data.decode("utf-8"), senderAddr[0], senderAddr[1]))
-            print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
+            #print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
             fan = struct.unpack('d',data)
             sendAns = True
             p.it()

@@ -14,6 +14,15 @@ mx, my, mz
 """
 import socket
 import struct
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
+
+class Vertushka():
+    """ обмен данными с вертушкой """
+    pass
+
 
 host = '192.168.1.150'
 host = '89.22.167.12'
@@ -40,24 +49,124 @@ print('[*] Ready to receive MPU data on %s:%d' % (bind_ip,bind_port))
 server.connect((get_ip(), 6505))
 server.settimeout(0.5)
 
-#%%
+#%% Фигура
+plt.ion() # to run GUI event loop
 
-msg = struct.pack('d', 0.5)
+#%% Класс для динамического графика.
+# Задержка отрисовки 70мс!
 
-# отправляем запрос , (address[0], 6501)
-server.send(msg) # неважно что будем отправлять
+class PlotterObject():
+    def __init__(self, figNum=None, maxPoints=300):
+        if figNum is None:
+            self.figure, axes = plt.subplots(3, 1, figsize=(6, 6))
+            self.figNum = plt.gcf().number
+        else:
+            self.figure = plt.figure(num=figNum, clear=True)
+            axes = self.figure.subplots(3, 1)
+            self.figNum = figNum
+        #self.figure.tight_layout()
 
-try:
-    msg, address = server.recvfrom(64) # принимаем
-    print(struct.unpack('d'*2, msg))
+        # init data, add empty lines with colors
+        self.lines = {}
+        self.axes = {}
+        self.data = {'t':[]}
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
+        self.keys = ['t', 'theta', 'omega', 'u']
+        dimension = ['s', 'rad', 'rad/s', '-1..1']
+        for (key, ax, c, dim) in zip(self.keys[1:], axes, colors, dimension[1:]):
+            self.axes[key] = ax
+            ax.grid(b=True) # сетку на всех осях
+            self.data[key] = []
+            self.lines[key], = self.axes[key].plot(self.data['t'],
+                                                  self.data[key],
+                                                  color=c) # и пустую линию
+            self.axes[key].set_ylabel(key+' ['+dim+']') # обозначения на осях
 
-except socket.error:
-    print('No data available', socket.error)
+        self.maxPoints = maxPoints
+
+    def addData(self, t, ThetaOmegaU):
+        ttwu = [t]
+        ttwu.extend(ThetaOmegaU)
+        for (key, d) in zip(self.keys, ttwu):
+            self.data[key].append(d)
+            if len(self.data[key])>self.maxPoints: # cut len to maxPoints
+                self.data[key] = self.data[key][1:]
+
+        for key in self.keys[1:]: # updating data values
+            self.lines[key].set_xdata(self.data['t'])
+            self.lines[key].set_ydata(self.data[key])
+            self.axes[key].set_xlim(right=max(self.data['t']),
+                                    left=min(self.data['t']))
+            self.axes[key].set_ylim(top=max(self.data[key]),
+                                    bottom=min(self.data[key]))
+
+        self.figure.canvas.draw() # drawing updated values
+        self.figure.canvas.flush_events()
+
+plotter = PlotterObject(maxPoints=30)
+
+t = []
+t0 = time.time()
+for i in range(50):
+    t.append(time.time()-t0)
+    plotter.addData(t[-1], np.random.rand(3))
+    #time.sleep(0.1)
+
+plt.plot(np.diff(np.array(t)))
+#%% Основной цикл
+plt.clf()
+
+plt.tight_layout()
+
+plt.xlabel("time, s")
+plt.ylabel("rad")
+
+
+t0 = time.time()
+t, theta, omega = [], [], []
+
+line1, = ax.plot(t, theta, '-') # empty line
+
+while True:
+    msg = struct.pack('d', 0.1)
+    server.send(msg) # отправляем запрос , (address[0], 6501)
+
+    try:
+        msg, address = server.recvfrom(64) # принимаем
+        theta_i, omega_i = struct.unpack('d'*2, msg)
+        print(theta_i)
+        t.append(time.time() - t0)
+        theta.append(theta_i)
+        omega.append(omega_i)
+
+        # updating data values
+        line1.set_xdata(t)
+        line1.set_ydata(theta)
+
+        ax.set_xlim(right=max(t), left=min(t))
+        ax.set_ylim(top=max(theta), bottom=min(theta))
+
+        # drawing updated values
+        figure.canvas.draw()
+
+        # This will run the GUI event
+        # loop until all UI events
+        # currently waiting have been processed
+        figure.canvas.flush_events()
+
+        time.sleep(0.1)
+
+    except socket.error:
+        print('No data available', socket.error)
+    except KeyboardInterrupt:
+            print('\n[*] Exit...')
+            break # выход из цикла
 
 
 
 #%%
 server.close()
+
 
 
 
