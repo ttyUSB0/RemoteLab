@@ -3,7 +3,7 @@
 """
 Клиент UDP для обмена данными с имитатором КА
 запрашивает порт 6502
-слушает порт 6501
+
 
 У сервера по любой посылке - возврат вектор из 9 элементов double
 wx, wy, wz
@@ -20,26 +20,26 @@ import time
 import numpy as np
 
 #%% Закон управления
-def control(t, theta, omega):
+def control(t):
     """ управление """
-    return np.sin(t)
-
+    return np.sin(0.5*t)
 
 #%% Основной цикл
 plotter = tlib.Plotter()
-
-# host = '192.168.1.150'
-# host = '89.22.167.12'
-
 t0 = time.time()
-theta_i, omega_i = 0., 0.
-with tlib.Communicator(hostIP='192.168.1.150') as comm:
+
+# '89.22.167.12'
+# '192.168.1.150'
+
+with tlib.Communicator(hostIP='89.22.167.12',
+                       packetStruct='d'*12,
+                       hostPort=6502, bindPort=6501) as comm:
     while True:
         try:
-            u = control(time.time()-t0, theta_i, omega_i)
+            u = control(time.time()-t0)
             comm.control(u)
-            theta_i, omega_i = comm.measure() # принимаем
-            plotter.addData(time.time()-t0, (theta_i, omega_i, u))
+            data = comm.measure() # принимаем
+            plotter.addData(time.time()-t0, (data[5], data[6], u))
             time.sleep(0.05)
 
         except KeyboardInterrupt:

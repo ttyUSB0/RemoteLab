@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Клиент UDP для обмена данными с имитатором КА
-запрашивает порт 6502
-слушает порт 6501
-
-У сервера по любой посылке - возврат вектор из 9 элементов double
-wx, wy, wz
-ax, ay, az
-mx, my, mz
+Библиотека, содежит:
+    Plotter - создаёт график, динамически обновляет, добавляя данные
+    Communicator - организует связь с имитатором, 1 сокет
+    Printer - для печати вращающейся палочки, индикатор активности
 
 @author: alex
 """
 import socket
 import struct
+import sys
 import matplotlib.pyplot as plt
-# import numpy as np
+#import numpy as np
+
 
 #%% Класс для динамического графика.
 # Задержка отрисовки около 70мс!
 
-class PlotterObject():
+class Plotter():
     def __init__(self, figNum=None, maxPoints=300):
         if figNum is None:
             self.figure, axes = plt.subplots(3, 1, figsize=(6, 6))
@@ -68,16 +66,28 @@ class PlotterObject():
         self.figure.canvas.draw() # drawing updated values
         self.figure.canvas.flush_events()
 
-#%%
-class CommObject():
-    """ обмен данными с вертушкой """
-    def __init__(self, hostIP = None, packetStruct='d'*2):
+    def getData(self):
+        return self.data
+
+#%% Коммуникатор
+def getIP():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('192.168.1.1', 1)) # doesn't even have to be reachable
+    IP = s.getsockname()[0]
+    s.close()
+    return IP
+
+class Communicator():
+    """ обмен данными с имитатором вертушки, 1 сокет"""
+    def __init__(self, hostIP = None,
+                 packetStruct='d'*2,
+                 hostPort=6505, bindPort=6502):
         self.packetStruct = packetStruct # структура пакета
-        self.hostAddr = (hostIP, 6505)
-        self.bindAddr = (self.getIP(), 6502)
+        self.hostAddr = (hostIP, hostPort)
+        self.bindAddr = (getIP(), bindPort)
 
         if hostIP is None:
-            self.hostAddr = (self.getIP(), self.hostAddr[1])
+            self.hostAddr = (getIP(), self.hostAddr[1])
 
     def connect(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -86,7 +96,7 @@ class CommObject():
                                                          self.bindAddr[1]))
         self.server.connect(self.hostAddr)
         print('[+] Connected to %s:%d' %(self.hostAddr[0], self.hostAddr[1]))
-        self.server.settimeout(0.5)
+        self.server.settimeout(0.25)
 
     def control(self, u):
         msg = struct.pack('d', u)
@@ -94,32 +104,41 @@ class CommObject():
 
     def measure(self):
         try:
-            msg, _ = self.server.recvfrom(64) # принимаем
+            msg, _ = self.server.recvfrom(128) # принимаем
             data = struct.unpack(self.packetStruct, msg)
             return data
-        except socket.error:
+        except (socket.error, socket.timeout, struct.error):
             print('[+] No data available', socket.error)
             return [0. for i in range(len(self.packetStruct))] #вернём нули
 
-    def getIP(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('192.168.1.1', 1)) # doesn't even have to be reachable
-        IP = s.getsockname()[0]
-        s.close()
-        return IP
     def close(self):
         self.server.close()
         print('[+] server closed...')
 
-
-class Communicator:
-    """ обёртка для CommObject https://stackoverflow.com/a/865272/5355749 """
-    def __init__(self, hostIP = None, packetStruct='d'*2):
-        self.Comm = CommObject(hostIP, packetStruct)
     def __enter__(self):
-        self.Comm.connect()
-        return self.Comm
+        self.connect()
+        return self
     def __exit__(self, exc_type, exc_value, traceback):
-        self.Comm.close()
+        self.close()
 
 
+#%% Принтер
+class Printer():
+    """Print things to stdout on one line dynamically"""
+    def __init__(self, prefix=''):
+        self.i = 0
+        self.item = ['|', '/', '-', '\\']
+        self.prefix = prefix
+    def __enter__(self):
+        return self
+    def it(self):
+        sys.stdout.write("\r\x1b[K" + self.prefix + self.item[self.i])
+        sys.stdout.flush()
+        self.i += 1
+        if self.i==len(self.item):
+            self.i = 0
+    def asterisk(self):
+        sys.stdout.write("\r\x1b[K" + self.prefix + '*')
+        sys.stdout.flush()
+    def __exit__(self, exc_type, exc_value, traceback):
+        print('\n')
