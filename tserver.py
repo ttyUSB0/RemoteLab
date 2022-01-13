@@ -60,7 +60,7 @@ J = 1/12
 def myode(y, t, u):
     """ система ДУ, описывающая вертушку """
     theta, omega = y
-    M = kFan*u if t<=timeout else 0 # https://stackoverflow.com/a/2802748/5355749
+    M = kFan*u if t<=timeout else 0
     dydt = [omega, (M - kAir*omega**2*np.sign(omega))/J]
     return dydt
 

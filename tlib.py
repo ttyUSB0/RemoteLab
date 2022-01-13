@@ -12,12 +12,11 @@ import socket
 import struct
 import sys
 import matplotlib.pyplot as plt
-#import numpy as np
+import numpy as np
 
 
 #%% Класс для динамического графика.
 # Задержка отрисовки около 70мс!
-
 class Plotter():
     def __init__(self, figNum=None, maxPoints=300):
         if figNum is None:
@@ -58,16 +57,23 @@ class Plotter():
         for key in self.keys[1:]: # updating data values
             self.lines[key].set_xdata(self.data['t'])
             self.lines[key].set_ydata(self.data[key])
-            self.axes[key].set_xlim(right=max(self.data['t']),
-                                    left=min(self.data['t']))
-            self.axes[key].set_ylim(top=max(self.data[key]),
-                                    bottom=min(self.data[key]))
+            self.axes[key].set_xlim(right=self.data['t'][-1],
+                                    left=self.data['t'][0])
+
+            self.axes[key].set_ylim(top=np.nanmax(self.data[key]),
+                                    bottom=np.nanmin(self.data[key]))
 
         self.figure.canvas.draw() # drawing updated values
         self.figure.canvas.flush_events()
 
     def getData(self):
         return self.data
+
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_value, traceback):
+        plt.close(self.figNum)
+
 
 #%% Коммуникатор
 def getIP():
@@ -88,6 +94,7 @@ class Communicator():
 
         if hostIP is None:
             self.hostAddr = (getIP(), self.hostAddr[1])
+        self.dataNaN = [np.NaN for i in range(len(self.packetStruct))] #вернём в случае пропуска
 
     def connect(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -104,12 +111,16 @@ class Communicator():
 
     def measure(self):
         try:
-            msg, _ = self.server.recvfrom(128) # принимаем
+            msg, _ = self.server.recvfrom(256) # принимаем
             data = struct.unpack(self.packetStruct, msg)
             return data
         except (socket.error, socket.timeout, struct.error):
             print('[+] No data available', socket.error)
-            return [0. for i in range(len(self.packetStruct))] #вернём нули
+            return self.dataNaN
+
+    def ctrlAndMeas(self, u):
+        self.control(u)
+        return self.measure()
 
     def close(self):
         self.server.close()

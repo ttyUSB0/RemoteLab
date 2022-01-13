@@ -18,7 +18,6 @@ mx, my, mz [mT]
 m2x, m2y, m2z [mT]
 
 Все вектора в приборных СК, нефильтрованные, несмещённые
-TODO: переделать библиотеки в pigpio...
 @author: a.t.lelekov@yandex.ru
 """
 import pigpio
@@ -78,6 +77,7 @@ print('[*] pigpio connected, starting udp server..')
 
 imu = mpu9250()
 compass = qmc.QMC5883L()
+print('[*] QMC5883L connected..')
 
 bind_ip = getIP()
 bind_port = 6502
@@ -92,30 +92,37 @@ with Printer() as p:
         try:
             ack, senderAddr = server.recvfrom(64)
             #print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
-            fan = struct.unpack('d', ack)
+            fan = struct.unpack('d', ack)[0]
+            if fan is np.nan:
+                fan = 0
             sendAns = True
             p.it()
 
-        except (socket.timeout, struct.error):
-            fan = [0]
+        except struct.error:
+            fan = 0
+            sendAns = True
+            p.asterisk()
+
+        except socket.timeout:
+            fan = 0
             p.asterisk()
 
         except KeyboardInterrupt:
             print('\n[*] Exit...')
             break # выход из цикла
 
-        pi.hardware_PWM(ccPin, freq, int(MEG*np.clip(-fan[0], 0., 1.))) # stop fans...
-        pi.hardware_PWM(cwPin, freq, int(MEG*np.clip(fan[0], 0., 1.)))
+        pi.hardware_PWM(ccPin, freq, int(MEG*np.clip(-fan, 0., 1.)))
+        pi.hardware_PWM(cwPin, freq, int(MEG*np.clip(fan, 0., 1.)))
 
-        if sendAns: # отвечаем данными MPU
-            data = []
+        if sendAns: # отвечаем данными
+            data = [fan]
             data.extend(imu.accel)
             data.extend(imu.gyro)
             data.extend(imu.mag)
             data.extend(compass.measure())
 
             # передаём в приборной СК (см. документацию на MPU-9250, QMC)
-            msg = struct.pack('12d', *data)
+            msg = struct.pack('13d', *data)
             server.sendto(msg, senderAddr) # на адрес отправителя
 
 print('\n[*] Exit...')
