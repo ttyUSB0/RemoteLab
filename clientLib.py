@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Библиотека, содежит:
+Библиотека, содежит классы:
     Plotter - создаёт график, динамически обновляет, добавляя данные
     Communicator - организует связь с имитатором, 1 сокет
-    Printer - для печати вращающейся палочки, индикатор активности
 
-@author: alex
+@author: ttyUSB0
 """
 import socket
 import struct
-import sys
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 import numpy as np
 
+clip = lambda n, minn, maxn: max(min(maxn, n), minn) # https://stackoverflow.com/a/5996949/5355749
 
 #%% Класс для динамического графика.
 # Задержка отрисовки около 70мс!
 class Plotter():
-    def __init__(self, figNum=None, maxPoints=300):
+    def __init__(self, figNum=None, maxPoints=300, figSize=(6,6)):
         if figNum is None:
-            self.figure, axes = plt.subplots(3, 1, figsize=(6, 6))
+            self.figure, axes = plt.subplots(3, 1, figsize=figSize)
             self.figNum = plt.gcf().number
         else:
             self.figure = plt.figure(num=figNum, clear=True)
@@ -31,20 +31,29 @@ class Plotter():
         # init data, add empty lines with colors
         self.lines = {}
         self.axes = {}
-        self.data = {'t':[]}
+        self.data = {'t':[0., 0.]} # добавляем два пустых отсчёта (c NaN), для замеров dt
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
         self.keys = ['t', 'theta', 'omega', 'u']
-        dimension = ['s', 'rad', 'rad/s', '-1..1']
+        dimension = ['s', 'deg', 'deg/s', '-1..1']
         for (key, ax, c, dim) in zip(self.keys[1:], axes, colors, dimension[1:]):
             self.axes[key] = ax
             ax.grid(b=True) # сетку на всех осях
-            self.data[key] = []
+            self.data[key] = [np.nan, np.nan]
             self.lines[key], = self.axes[key].plot(self.data['t'],
                                                   self.data[key],
                                                   color=c) # и пустую линию
             self.axes[key].set_ylabel(key+' ['+dim+']') # обозначения на осях
-
+        self.axes['theta'].set_title('dt = %5.2f ms'%(0.,))
         self.maxPoints = maxPoints
+
+        self.stopNow = False
+        self.axButton = plt.axes([0.7, 0.895, 0.2, 0.05])
+        self.button = Button(self.axButton, 'Stop') # Создание кнопки
+        self.button.on_clicked(self.onButtonClicked)
+
+    def onButtonClicked(self, event):
+        """ обработчик клика """
+        self.stopNow = True
 
     def addData(self, t, ThetaOmegaU):
         ttwu = [t]
@@ -63,6 +72,7 @@ class Plotter():
             self.axes[key].set_ylim(top=np.nanmax(self.data[key]),
                                     bottom=np.nanmin(self.data[key]))
 
+        self.axes['theta'].set_title('dt = %5.2f ms'%(1000*np.mean(np.diff(self.data['t'])),)) #(self.data['t'][-1]-self.data['t'][-2])
         self.figure.canvas.draw() # drawing updated values
         self.figure.canvas.flush_events()
 
@@ -86,7 +96,7 @@ def getIP():
 class Communicator():
     """ обмен данными с имитатором вертушки, 1 сокет"""
     def __init__(self, hostIP = None,
-                 packetStruct='d'*2,
+                 packetStruct='13f',
                  hostPort=6505, bindPort=6502):
         self.packetStruct = packetStruct # структура пакета
         self.hostAddr = (hostIP, hostPort)
@@ -106,7 +116,7 @@ class Communicator():
         self.server.settimeout(0.25)
 
     def control(self, u):
-        msg = struct.pack('d', u)
+        msg = struct.pack('f', u)
         self.server.send(msg) # отправляем запрос
 
     def measure(self):
@@ -131,25 +141,3 @@ class Communicator():
         return self
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
-
-
-#%% Принтер
-class Printer():
-    """Print things to stdout on one line dynamically"""
-    def __init__(self, prefix=''):
-        self.i = 0
-        self.item = ['|', '/', '-', '\\']
-        self.prefix = prefix
-    def __enter__(self):
-        return self
-    def it(self):
-        sys.stdout.write("\r\x1b[K" + self.prefix + self.item[self.i])
-        sys.stdout.flush()
-        self.i += 1
-        if self.i==len(self.item):
-            self.i = 0
-    def asterisk(self):
-        sys.stdout.write("\r\x1b[K" + self.prefix + '*')
-        sys.stdout.flush()
-    def __exit__(self, exc_type, exc_value, traceback):
-        print('\n')
