@@ -68,9 +68,13 @@ class Plotter():
             self.lines[key].set_ydata(self.data[key])
             self.axes[key].set_xlim(right=self.data['t'][-1],
                                     left=self.data['t'][0])
-
-            self.axes[key].set_ylim(top=np.nanmax(self.data[key]),
-                                    bottom=np.nanmin(self.data[key]))
+            top = np.nanmax(self.data[key])
+            if np.isnan(top):
+                top = 1
+            bottom = np.nanmin(self.data[key])
+            if np.isnan(bottom):
+                bottom = 0
+            self.axes[key].set_ylim(top=top, bottom=bottom)
 
         self.axes['theta'].set_title('dt = %5.2f ms'%(1000*np.mean(np.diff(self.data['t'])),)) #(self.data['t'][-1]-self.data['t'][-2])
         self.figure.canvas.draw() # drawing updated values
@@ -96,15 +100,14 @@ def getIP():
 class Communicator():
     """ обмен данными с имитатором вертушки, 1 сокет"""
     def __init__(self, hostIP = None,
-                 packetStruct='13f',
                  hostPort=6505, bindPort=6502):
-        self.packetStruct = packetStruct # структура пакета
+        self.packetStruct = '13f' # структура пакета
         self.hostAddr = (hostIP, hostPort)
         self.bindAddr = (getIP(), bindPort)
 
         if hostIP is None:
             self.hostAddr = (getIP(), self.hostAddr[1])
-        self.dataNaN = [np.NaN for i in range(len(self.packetStruct))] #вернём в случае пропуска
+        self.dataNaN = [np.NaN for i in range(13)] #вернём в случае пропуска
 
     def connect(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

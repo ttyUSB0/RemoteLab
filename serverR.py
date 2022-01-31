@@ -26,7 +26,6 @@ from mpu9250 import mpu9250
 import qmc5883l as qmc
 import socket
 import struct
-import sys
 import numpy as np
 
 import serverLib as lib
@@ -69,17 +68,17 @@ with lib.Printer() as p:
             #print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
             fan = struct.unpack('f', ack)[0]
             if fan is np.nan:
-                fan = 0
+                fan = 0.
             sendAns = True
             p.it()
 
         except struct.error:
-            fan = 0
+            fan = 0.
             sendAns = True
             p.asterisk()
 
         except socket.timeout:
-            fan = 0
+            fan = 0.
             p.asterisk()
 
         except KeyboardInterrupt:

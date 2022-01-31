@@ -20,7 +20,7 @@ m2x, m2y, m2z [mT]
 
 @author: ttyUSB0
 """
-bind_port = 6505
+
 timeout = 1.5 # после этого времени вентиляторы принудительно стопятся
 timeoutGreat = 90 # за это время НУ становятся нулевыми
 
@@ -34,11 +34,12 @@ from scipy.integrate import odeint
 import time
 # import matplotlib.pyplot as plt
 import struct
+import sys
 
-
-ka = 1.43155798e-07
-ku = 5.88172838e-01
-Jres = 1/4.74464837e-02
+#%% ka, ku, J - идентифицированы! dt=140мс
+ka = 3.32914427e-05
+ku = 6.36414245e-01
+Jres = 1/6.24375258e-02
 # array([1.43155798e-07, 5.88172838e-01, 4.74464837e-02])
 def myode(y, t, u):
     """ система ДУ, описывающая вертушку """
@@ -47,8 +48,14 @@ def myode(y, t, u):
     dydt = [omega, (Mu - ka*omega**2*np.sign(omega))*Jres]
     return dydt
 
+#%% Основной код
 if __name__ == "__main__":
-    #%% Сокет
+    if len(sys.argv)<2:
+        bind_port = 6505
+    else:
+        bind_port = int(sys.argv[1])
+
+    #% Сокет
     print('[*] Starting server')
     bind_ip = lib.getIP()
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -56,7 +63,7 @@ if __name__ == "__main__":
     server.settimeout(1.5)
     print('[*] Ready to receive Ack on %s:%d' % (bind_ip,bind_port))
 
-    #%% Основной цикл
+    #% Основной цикл
     y0 = [0., 0.] # theta, omega in rad
     tPrev = time.time()
     rng = default_rng()
@@ -107,5 +114,5 @@ if __name__ == "__main__":
                 msg = struct.pack('13f', *ans)
                 server.sendto(msg, senderAddr)
 
-    #%% Сокет закрываем
+    #% Сокет закрываем
     server.close()
