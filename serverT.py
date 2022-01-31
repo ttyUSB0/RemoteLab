@@ -28,7 +28,7 @@ import socket
 import serverLib as lib
 
 import numpy as np
-from numpy.random import default_rng
+import random
 
 from scipy.integrate import odeint
 import time
@@ -66,7 +66,12 @@ if __name__ == "__main__":
     #% Основной цикл
     y0 = [0., 0.] # theta, omega in rad
     tPrev = time.time()
-    rng = default_rng()
+
+    random.seed()
+    bounds = [0.05, 0.05, 0.05,
+              2., 2., 2.,
+              3., 3., 3.,
+              0.5, 0.5, 0.5] # диапазон шума (+/- разброс)
 
     with lib.Printer() as p:
         while True:
@@ -96,19 +101,27 @@ if __name__ == "__main__":
             tPrev = tNow
 
             if sendAns: # отвечаем данными MPU
+                r = [] # шум по датчикам
+                for b in bounds:
+                    r.append(random.uniform(-b, b))
+                aR = np.array(r[:3])
+                wR = np.array(r[3:6])
+                m1R = np.array(r[6:9])
+                m2R = np.array(r[9:])
+
                 # magnet field im uT
                 mx = 45*np.cos(y0[0])
                 my = 45*np.sin(y0[0])
 
                 ans = [fan] # u
                 # acceleration [g]
-                ans.extend(np.array([-1., 0., 0.]) +rng.uniform(low=-0.05, high=0.05, size=3))
+                ans.extend(np.array([-1., 0., 0.]) +aR)
                 # angular velocity [deg/s]
-                ans.extend(np.array([y0[1]*180/np.pi, 0., 0.]) +rng.uniform(low=-2, high=2, size=3))
+                ans.extend(np.array([y0[1]*180/np.pi, 0., 0.]) +wR)
                 #magnet field (AK) [uT]
-                ans.extend(np.array([-my-16.2, 0., -mx-8.8]) +rng.uniform(low=-3, high=3, size=3))
+                ans.extend(np.array([-my-16.2, 0., -mx-8.8]) +m1R)
                 #magnet field (QMC) [uT]
-                ans.extend(np.array([-my, 0., -mx]) +rng.uniform(low=-0.5, high=0.5, size=3))
+                ans.extend(np.array([-my, 0., -mx]) +m2R)
 
                 # передаём в приборной СК (см. документацию на MPU-9250)
                 msg = struct.pack('13f', *ans)
