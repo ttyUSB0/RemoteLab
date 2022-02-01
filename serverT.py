@@ -95,7 +95,7 @@ if __name__ == "__main__":
             fan = lib.clip(fan[0], -1., 1.)
             tNow = time.time()
             t = np.linspace(0, tNow-tPrev, 2)
-            sol = odeint(myode, y0, t, args=(fan,)) #, hmax=0.01
+            sol = odeint(myode, y0, t, args=(fan,), hmax=0.01) #, hmax=0.01
 
             y0 = sol[-1,:]
             tPrev = tNow

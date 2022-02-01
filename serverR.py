@@ -67,7 +67,7 @@ with lib.Printer() as p:
             ack, senderAddr = server.recvfrom(64)
             #print('[*] ack from %s:%d'%(senderAddr[0], senderAddr[1]))
             fan = struct.unpack('f', ack)[0]
-            if fan is np.nan:
+            if np.isnan(fan):
                 fan = 0.
             sendAns = True
             p.it()

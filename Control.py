@@ -6,6 +6,7 @@
 """
 import sys
 sys.path.append("/home/alex/Science/magACS/Acs1D/pyRemote/")
+# ^^^ заменить на свой путь к clientLib.py
 import clientLib as lib
 import time
 import numpy as np
@@ -25,23 +26,25 @@ def sensor2BodyFrame(data):
 
 def calcState(state):
     """ расчёт угла ориентации по магнитометру QMC"""
-    state['pos'] = np.arctan2(state['mQMC'][1], state['mQMC'][0])
+    state['pos'] = np.arctan2(state['mQMC'][1], state['mQMC'][0])*180/np.pi
     state['vel'] = state['w'][2]
     return state
 
 #%% Закон управления
-def control(t):
+def control(t, w, phi):
     """ управление """
-    return .1*np.sin(0.5*t - np.pi/4)
+    return .05*np.sin(0.5*t - np.pi/4)
 
 #%% Основной цикл
-with lib.Communicator(hostIP='192.168.1.150', # '89.22.167.12',
+state = {'vel':0, 'pos':0}
+with lib.Communicator(hostIP='89.22.167.12',
                        hostPort=6502,
                        bindPort=6501) as comm, lib.Plotter() as plotter:
     t0 = time.time()
     while True:
         try:
-            u = control(time.time()-t0) # расчёт управления
+            # расчёт управления
+            u = control(time.time()-t0, state['vel'], state['pos'])
             comm.control(u) # отправляем его в НОК
             data = comm.measure() # принимаем ответ
 
