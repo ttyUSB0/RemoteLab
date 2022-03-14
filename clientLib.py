@@ -18,7 +18,8 @@ clip = lambda n, minn, maxn: max(min(maxn, n), minn) # https://stackoverflow.com
 #%% Класс для динамического графика.
 # Задержка отрисовки около 70мс!
 class Plotter():
-    def __init__(self, figNum=None, maxPoints=300, figSize=(6,6)):
+    def __init__(self, figNum=None, maxPoints=300, figSize=(6,6),
+                 noStopButton=False):
         if figNum is None:
             self.figure, axes = plt.subplots(3, 1, figsize=figSize)
             self.figNum = plt.gcf().number
@@ -47,9 +48,10 @@ class Plotter():
         self.maxPoints = maxPoints
 
         self.stopNow = False
-        self.axButton = plt.axes([0.7, 0.895, 0.2, 0.05])
-        self.button = Button(self.axButton, 'Stop') # Создание кнопки
-        self.button.on_clicked(self.onButtonClicked)
+        if not noStopButton:
+            self.axButton = plt.axes([0.7, 0.895, 0.2, 0.05])
+            self.button = Button(self.axButton, 'Stop') # Создание кнопки
+            self.button.on_clicked(self.onButtonClicked)
 
     def onButtonClicked(self, event):
         """ обработчик клика """
@@ -74,6 +76,9 @@ class Plotter():
             bottom = np.nanmin(self.data[key])
             if np.isnan(bottom):
                 bottom = 0
+            if top==bottom:
+                top = top*1.02
+                bottom = bottom*0.98
             self.axes[key].set_ylim(top=top, bottom=bottom)
 
         self.axes['theta'].set_title('dt = %5.2f ms'%(1000*np.mean(np.diff(self.data['t'])),)) #(self.data['t'][-1]-self.data['t'][-2])

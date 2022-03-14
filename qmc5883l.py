@@ -67,7 +67,7 @@ OSR_64 = 0b11000000     # Over Sample Rate 64: more noise, less power.
 
 SENSIVITY_2G = 12000.    # LSB/G, Field Range = ±2G
 SENSIVITY_T = 100.    # LSB/deg
-G2uT = 1. # результат будет в mT
+G2uT = 100. # результат будет в mT
 
 class QMC5883L(object):
     """Interface for the QMC5883l 3-Axis Magnetic Sensor."""

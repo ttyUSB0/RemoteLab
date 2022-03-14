@@ -9,8 +9,9 @@ except ImportError:
 	# from fake_rpi import smbus
 
 from time import sleep
-import struct
+# import struct
 import ctypes # for signed int
+import logging
 
 # Todo:
 # - replace all read* with the block read?
@@ -81,7 +82,7 @@ class mpu9250(object):
 
 		# let's double check we have the correct device address
 		ret = self.read8(MPU9250_ADDRESS, WHO_AM_I)
-		print('[*] MPU9520 device id %x'%(ret,))
+		logging.info('[*] MPU9520 device initialized, id %x'%(ret,))
 		#if ret is not DEVICE_ID:
 		#	raise Exception('MPU9250: init failed to find device')
 
@@ -103,7 +104,7 @@ class mpu9250(object):
 			raise Exception('AK8963: init failed to find device')
 		self.write(AK8963_ADDRESS, AK8963_CNTL1, (AK8963_16BIT | AK8963_8HZ)) # cont mode 1
 		self.write(AK8963_ADDRESS, AK8963_ASTC, 0)
-		print('[*] AK8963 initialized..')
+		logging.info('[*] AK8963 initialized..')
 		#normalization coefficients
 		self.alsb = 2.0 / 32760 # ACCEL_2G
 		self.glsb = 250.0 / 32760 # GYRO_250DPS

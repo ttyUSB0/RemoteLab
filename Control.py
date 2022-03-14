@@ -25,23 +25,34 @@ def sensor2BodyFrame(data):
     return state
 
 def calcState(state):
-    """ расчёт угла ориентации по магнитометру QMC"""
+    """ расчёт состояния:
+        - угол по магнитометру QMC,
+        - скорость по гироскопу """
     state['pos'] = np.arctan2(state['mQMC'][1], state['mQMC'][0])*180/np.pi
     state['vel'] = state['w'][2]
     return state
 
 #%% Закон управления
 def control(t, w, phi):
-    """ управление """
-    return .05*np.sin(0.5*t - np.pi/4)
+    """ управление релейное """
+    err = 0 - w
+    treshold = 1
+    if err > treshold:
+        u = 0.9
+    elif err < -treshold:
+        u = -0.9
+    else:
+        u = 0
+    return u
 
 #%% Основной цикл
 state = {'vel':0, 'pos':0}
-with lib.Communicator(hostIP='89.22.167.12',
+with lib.Communicator(hostIP='192.168.1.150',# 89.22.167.12
                        hostPort=6502,
                        bindPort=6501) as comm, lib.Plotter() as plotter:
     t0 = time.time()
     while True:
+
         try:
             # расчёт управления
             u = control(time.time()-t0, state['vel'], state['pos'])

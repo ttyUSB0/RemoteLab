@@ -27,10 +27,15 @@ import qmc5883l as qmc
 import socket
 import struct
 import numpy as np
+import logging
 
 import serverLib as lib
 
 #%% Основной код
+
+logging.basicConfig(filename='serverR.log', level=logging.INFO,
+                    format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.info('[*] Started!')
 
 # Номера пинов для вентиляторов (Broadcom)
 # https://pinout.xyz/#s
@@ -42,23 +47,23 @@ MEG = 1000000 # 1M, for duty cycle
 
 pi = pigpio.pi() # pi accesses the local Pi's GPIO
 if not pi.connected:
-    print('[*] can\'t connect with pigpio..')
+    logging.info('[!] can\'t connect with pigpio..')
     exit()
 pi.hardware_PWM(ccPin, freq, 0) # stop fans...
 pi.hardware_PWM(cwPin, freq, 0)
 
-print('[*] pigpio connected, starting udp server..')
+logging.info('[*] pigpio connected, starting udp server..')
 
 imu = mpu9250()
 compass = qmc.QMC5883L()
-print('[*] QMC5883L connected..')
+logging.info('[*] QMC5883L connected..')
 
 bind_ip = lib.getIP()
 bind_port = 6502
 server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server.bind((bind_ip,bind_port))  # Привязка адреса и порта к сокету.
 server.settimeout(1.5)
-print('[*] Ready to receive AckMPU on %s:%d' % (bind_ip,bind_port))
+logging.info('[*] Ready to receive AckMPU on %s:%d' % (bind_ip,bind_port))
 
 with lib.Printer() as p:
     while True:
@@ -82,8 +87,15 @@ with lib.Printer() as p:
             p.asterisk()
 
         except KeyboardInterrupt:
-            print('\n[*] Exit...')
+            logging.warning('[!] Ctrl+C')
             break # выход из цикла
+
+        except Exception as e: # https://stackoverflow.com/a/33239954/5355749
+            if hasattr(e, 'message'):
+                logging.error(e.message)
+            else:
+                logging.error(e)
+            break
 
         pi.hardware_PWM(ccPin, freq, int(MEG*np.clip(-fan, 0., 1.)))
         pi.hardware_PWM(cwPin, freq, int(MEG*np.clip(fan, 0., 1.)))
@@ -99,8 +111,9 @@ with lib.Printer() as p:
             msg = struct.pack('13f', *data)
             server.sendto(msg, senderAddr) # на адрес отправителя
 
-print('\n[*] Exit...')
+logging.info('[*] Exiting...')
 server.close()
 
 pi.hardware_PWM(ccPin, freq, 0) # stop fans...
 pi.hardware_PWM(cwPin, freq, 0)
+logging.info('[*] Finish!')
