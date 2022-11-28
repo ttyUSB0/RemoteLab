@@ -28,13 +28,22 @@ import socket
 import struct
 import numpy as np
 import logging
+import sys
 
 import serverLib as lib
 
 #%% Основной код
 
-logging.basicConfig(filename='serverR.log', level=logging.INFO,
-                    format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(message)s',
+    datefmt='%m/%d/%Y %I:%M:%S %p',
+    handlers=[
+        logging.FileHandler("/home/pi/serverR.log"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
 logging.info('[*] Started!')
 
 # Номера пинов для вентиляторов (Broadcom)

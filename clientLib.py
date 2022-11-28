@@ -54,7 +54,7 @@ class Plotter():
             self.button.on_clicked(self.onButtonClicked)
 
     def onButtonClicked(self, event):
-        """ обработчик клика """
+        """ обработчик нажатия на СТОП """
         self.stopNow = True
 
     def addData(self, t, ThetaOmegaU):
