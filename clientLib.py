@@ -38,7 +38,7 @@ class Plotter():
         dimension = ['s', 'deg', 'deg/s', '-1..1']
         for (key, ax, c, dim) in zip(self.keys[1:], axes, colors, dimension[1:]):
             self.axes[key] = ax
-            ax.grid(b=True) # сетку на всех осях
+            # ax.grid(gridOn=True) # сетку на всех осях
             self.data[key] = [np.nan, np.nan]
             self.lines[key], = self.axes[key].plot(self.data['t'],
                                                   self.data[key],
